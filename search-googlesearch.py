@@ -11,6 +11,8 @@ import BeautifulSoup
 
 print(len(sys.argv))
 
+pronouns = '[all, another, any, anybody, anyone, anything, both, each, either, everybody, everyone, everything, few, he, her, hers, herself, him, himself, his, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, neither, nobody, none, nothing, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, they, this, those, us, we, what, whatever, which, whichever, who, whoever, whom, whomever, whose, you, your, yours, yourself, yourselves]'
+
 if(len(sys.argv) > 1):
   db = MySQLdb.connect(host="localhost",    # your host, usually localhost
       user="root",         # your username
@@ -40,10 +42,18 @@ if(len(sys.argv) > 1):
     titleSearchWordCount+=pageContent.lower().count(sys.argv[1].lower())
     
     #count all the words in the text to find friendly words
-    descriptionWords = Counter(re.findall(r'\w+', extracted.description))
-    contentWords = Counter(re.findall(r'\w+', pageContent))
-    print(descriptionWords)
-    print(contentWords)
+    rawDescription = re.findall(r'\w+', (extracted.description))
+    print(pageContent)
+    rawContent = re.findall(r'\w+', (pageContent))
+    print(rawDescription)
+    rawDescriptionMinusPronouns = list(set(rawDescription) - set(pronouns))
+    print(rawDescriptionMinusPronouns)
+    descriptionWords = Counter(rawDescription)
+    contentWords = Counter(rawContent)
+    
+    print()
+    #print(descriptionWords)
+    #print(contentWords)
     
     #print pageContent
     cur.execute(sqlString, (url, sys.argv[1], extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
