@@ -11,7 +11,7 @@ import BeautifulSoup
 
 print(len(sys.argv))
 
-pronouns = '[all, another, any, anybody, anyone, anything, both, each, either, everybody, everyone, everything, few, he, her, hers, herself, him, himself, his, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, neither, nobody, none, nothing, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, they, this, those, us, we, what, whatever, which, whichever, who, whoever, whom, whomever, whose, you, your, yours, yourself, yourselves]'
+discard = '[a, all, another, and, any, anybody, anyone, anything, are, be, both, by, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, you, your, yours, yourself, yourselves]'
 
 if(len(sys.argv) > 1):
   db = MySQLdb.connect(host="localhost",    # your host, usually localhost
@@ -42,22 +42,25 @@ if(len(sys.argv) > 1):
     titleSearchWordCount+=pageContent.lower().count(sys.argv[1].lower())
     
     #count all the words in the text to find friendly words
-    rawDescription = re.findall(r'\w+', (extracted.description))
-    print(pageContent)
-    rawContent = re.findall(r'\w+', (pageContent))
-    print(rawDescription)
-    rawDescriptionMinusPronouns = list(set(rawDescription) - set(pronouns))
-    print(rawDescriptionMinusPronouns)
-    descriptionWords = Counter(rawDescription)
-    contentWords = Counter(rawContent)
+    rawDescription = re.sub("[^\w]", " ", extracted.description.lower()).split()
+    rawContent = re.sub("[^\w]", " ", pageContent.lower()).split()
     
-    print()
-    #print(descriptionWords)
-    #print(contentWords)
+    #rawDescriptionMinusPronouns = list(set(rawDescription) - set(pronouns))
+    rawDescriptionMinusDiscard = [desWord for desWord in rawDescription if desWord not in discard]
+    rawContentMinusDiscard = [contentWord for contentWord in rawContent if contentWord not in discard]
     
-    #print pageContent
+    # get the count of the the most common words
+    descriptionWords = Counter(rawDescriptionMinusDiscard).most_common(10)
+    contentWords = Counter(rawContentMinusDiscard).most_common(10)
+    
+    #print()
+    print(descriptionWords)
+    print(contentWords)
+    
     cur.execute(sqlString, (url, sys.argv[1], extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
     db.commit()
     #print(extracted)
+    
+    print("---------------------------------------------------")
 
   cur.close()
