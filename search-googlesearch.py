@@ -20,23 +20,24 @@ cur = db.cursor()
 
 def checkWord(word):
   # see if the word is in the word table
-  print(word)
-  searchSqlString = "select id from word where word=%s);"
-  cur.execute(searchSqlString, (word))
-  print("please")
-  if cur.fetchone()[0]:
+  #print(word)
+  wordSelect = "select * from word where word= %s;"
+  res = cur.execute(wordSelect, ([word]))
+  data = cur.fetchall()
+  if data:
     #return the wordId
-    print("hi")
-    print cur.fetchone()[0]
-    return cur.fetchone()[0];
+    #print("hi")
+    #print data[0][0]
+    return data[0][0]
   else:
     #create the word
-    print("1 bye");
-    searchSqlString = "insert into word (word) values (%s);"
-    cur.execute(searchSqlString, (word))
-    print("2 bye")
-    print db.insert_id()
-    return db.insert_id();
+    #print("1 bye");
+    wordInsert = "insert into word (word) values (%s);"
+    cur.execute(wordInsert, ([word]))
+    db.commit()
+    #print("2 bye")
+    #print db.insert_id()
+    return cur.lastrowid;
 
 
 # words we don't care about
@@ -49,7 +50,7 @@ if(len(sys.argv) > 1):
   for phrasePart in sys.argv[1:len(sys.argv)]:
     searchPhrase.append(phrasePart)
     
-  print(searchPhrase)
+  #print(searchPhrase)
   
   #searchString = str(searchPhrase).strip('[]').strip('\'')
   searchString = ' '.join(map(str, searchPhrase))
@@ -59,9 +60,9 @@ if(len(sys.argv) > 1):
   cur.execute(searchSqlString, (str(searchPhrase), 0))
   db.commit()
   
-  print(searchString)
+  #print(searchString)
   for url in search(searchString, stop=8):
-    print(url)
+    #print(url)
     #print ("hi")
     html = requests.get(url).text
     extracted = extraction.Extractor().extract(html, source_url=url)
@@ -97,10 +98,10 @@ if(len(sys.argv) > 1):
       if word in pageContent.lower():
         ContentSearchWordCount+=1
     
-    print(urlSearchWordCount)
-    print(titleSearchWordCount)
-    print(descriptionSearchWordCount)
-    print(ContentSearchWordCount)
+    #print(urlSearchWordCount)
+    #print(titleSearchWordCount)
+    #print(descriptionSearchWordCount)
+    #print(ContentSearchWordCount)
     
     #titleSearchWordCount+=extracted.title.lower().count(searchPhrase.lower()) *3
     #titleSearchWordCount+=extracted.description.lower().count(searchPhrase.lower()) *2
@@ -126,7 +127,7 @@ if(len(sys.argv) > 1):
     if significantNumber == 0:
       significantNumber = 1
       
-    print(significantNumber)
+    #print(significantNumber)
     for cWord in contentWords:
       if(cWord[1] > significantNumber):
         significantContentWords+=cWord
@@ -140,11 +141,11 @@ if(len(sys.argv) > 1):
     # SQL
     #
     
-    sqlString = "insert into searchResults (url, search, title, description, imageUrl, content, feeds, rating, searchWordCount, friendwordCount) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+    #sqlString = "insert into searchResults (url, search, title, description, imageUrl, content, feeds, rating, searchWordCount, friendwordCount) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
     
     
-    cur.execute(sqlString, (url, searchPhrase, extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
-    db.commit()
+    #cur.execute(sqlString, (url, searchPhrase, extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
+    #db.commit()
     #print(extracted)
     
     print("---------------------------------------------------")
