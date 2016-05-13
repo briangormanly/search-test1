@@ -97,32 +97,19 @@ def getUniqueWordResult(wordId, resultPageId, wordLocationId):
   else:
     return -1
 
-# words we don't care about
-discard = '[a, all, also, another, and, any, anybody, anyone, anything, are, be, both, by, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, you, your, yours, yourself, yourselves]'
-
-if(len(sys.argv) > 1):
-  
-  # get the user entered search phrase
-  searchPhrase = [];
-  for phrasePart in sys.argv[1:len(sys.argv)]:
-    searchPhrase.append(phrasePart)
-    
-  #print(searchPhrase)
-  
-  #searchString = str(searchPhrase).strip('[]').strip('\'')
-  searchString = ' '.join(map(str, searchPhrase))
-  
+def doSearch(searchString, level, searchStop):
   # Save the search string
-  currentSearchId = saveSearch(searchPhrase, 0)
+  currentSearchId = saveSearch(searchPhrase, level)
   
   #print(searchString)
-  for url in search(searchString, stop=20):
+  for url in search(searchString, stop=searchStop):
     
     html = requests.get(url).text
     extracted = extraction.Extractor().extract(html, source_url=url)
     
     if extracted is not None:
-      soup = BeautifulSoup.BeautifulSoup(html)
+      page_text = html.encode('utf-8').decode('ascii', 'ignore')
+      soup = BeautifulSoup.BeautifulSoup(page_text)
       pageContent = "";
       for node in soup.findAll('p'):
         pageContent+=''.join(node.findAll(text=True))
@@ -165,35 +152,77 @@ if(len(sys.argv) > 1):
     
       #word breakdown
       for word in searchPhrase:
-        if word in url.lower():
+        if word in url.lower() and len(word) > 1:
           #check to see the word exists and get id
           currentWordId = saveWord(word)
           #print(wordId)
           saveResultWord(currentResultPageId, currentWordId, 6, getWordLocation("url"), True)
     
       for word in rawTitleMinusDiscard:
-        currentWordId = saveWord(word)
-        if word in searchPhrase:
-          saveResultWord(currentResultPageId, currentWordId, 4, getWordLocation("title"), True)
-        else:
-          saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("title"), False)
+        if len(word) > 1:
+          currentWordId = saveWord(word)
+          if word in searchPhrase:
+            saveResultWord(currentResultPageId, currentWordId, 4, getWordLocation("title"), True)
+          else:
+            saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("title"), False)
     
       for word in rawDescriptionMinusDiscard:
-        currentWordId = saveWord(word)
-        if word in searchPhrase:
-          saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("description"), True)
-        else:
-          saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("description"), False)
+        if len(word) > 1:
+          currentWordId = saveWord(word)
+          if word in searchPhrase:
+            saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("description"), True)
+          else:
+            saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("description"), False)
 
       for word in rawContentMinusDiscard:
-        currentWordId = saveWord(word)
-        if word in searchPhrase:
-          saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("content"), True)
-        elif word in significantContentWords:
-          saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("content"), False)
-        else:
-          saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("content"), False)
+        if len(word) > 1:
+          currentWordId = saveWord(word)
+          if word in searchPhrase:
+            saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("content"), True)
+          elif word in significantContentWords:
+            saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("content"), False)
+          else:
+            saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("content"), False)
+  
+  return currentSearchId
+
+def getNextLevelSearches(searchId):
+  # get the most common words for the previous search
+  #
+  sqlString = "select word.word, sum(resultword.wordScore) as score from word, resultWord, resultPage, search, wordlocation where word.id = resultword.wordId and resultWord.resultPageId = resultPage.id and resultWord.wordLocationId = wordLocation.id and resultPage.searchId = search.id and search.id = %s and resultWord.wordScore > 10 group by word.word order by score desc limit 10;"
+  cur.execute(sqlString, ([searchId]))
+  data = cur.fetchall()
+  if data:
+    return data[0][0]
+  else:
+    return -1
+  
+
+# words we don't care about
+discard = '[a, all, also, another, and, any, anybody, anyone, anything, are, be, both, by, com, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, http, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, www, you, your, yours, yourself, yourselves]'
+
+if(len(sys.argv) > 1):
+  
+  # get the user entered search phrase
+  searchPhrase = [];
+  for phrasePart in sys.argv[1:len(sys.argv)]:
+    searchPhrase.append(phrasePart)
     
+  #print(searchPhrase)
+  
+  #searchString = str(searchPhrase).strip('[]').strip('\'')
+  searchString = ' '.join(map(str, searchPhrase))
+  
+  searchId = doSearch(searchString, 0, 5)
+  newSearchWords = getNextLevelSearches(searchId)
+  for searchWord in newSearchWords:
+    newSearchPhrase = searchString + searchWord
+    print("starting search:::")
+    print(newSearchPhrase)
+    doSearch(newSearchPhrase, searchId, 5)
+  
+  
+  
         
         #save the result word
         #saveResultWord(currentResultPageId, currentWordId, wordCount, titleWordCount, descriptionWordCount, contentWordCount)
@@ -250,7 +279,5 @@ if(len(sys.argv) > 1):
       #cur.execute(sqlString, (url, searchPhrase, extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
       #db.commit()
       #print(extracted)
-    
-    print("---------------------------------------------------")
 
   cur.close()
