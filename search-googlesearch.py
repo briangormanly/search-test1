@@ -25,19 +25,36 @@ def saveResultPage(searchId, url, title, description, imageUrl, content, feeds):
   db.commit()
   return cur.lastrowid;
 
-def saveResultWord(resultPageId, wordId, wordCount, wordLocationId, isSearchWord):
-  sqlString = "insert into resultWord (resultPageId, wordId, wordCount, wordLocationId, isSearchWord) values (%s, %s, %s, %s, %s);"
-  cur.execute(sqlString, (resultPageId, wordId, wordCount, wordLocationId, isSearchWord))
-  #pcur.execute(wordInsert, ([word]))
-  db.commit()
-  return cur.lastrowid;
-
+def saveResultWord(resultPageId, wordId, wordScore, wordLocationId, isSearchWord):
+  #check to see if this result word exists for this searchResult and word
+  resultWordId = getUniqueWordResult(wordId, resultPageId, wordLocationId)
+  if resultWordId is not -1:
+    #get the current score for existing resultWord
+    sqlString = "select wordScore from resultword where resultPageId= %s and wordId= %s and wordLocationId = %s;"
+    cur.execute(sqlString, (resultPageId, wordId, wordLocationId))
+    data = cur.fetchall()
+    if data:
+      newCount = data[0][0] + wordScore
+      
+      sqlString = "update resultWord set wordScore= %s where resultPageId= %s and wordId= %s and wordLocationId = %s;"
+      cur.execute(sqlString, (newCount, resultPageId, wordId, wordLocationId))
+      #pcur.execute(wordInsert, ([word]))
+      db.commit()
+      return cur.lastrowid;
+    
+  else:
+    sqlString = "insert into resultWord (resultPageId, wordId, wordScore, wordLocationId, isSearchWord) values (%s, %s, %s, %s, %s);"
+    cur.execute(sqlString, (resultPageId, wordId, wordScore, wordLocationId, isSearchWord))
+    #pcur.execute(wordInsert, ([word]))
+    db.commit()
+    return cur.lastrowid;
+  
 def saveWord(word):
   existingWord = getWord(word)
   #print existingWord
   if existingWord is -1:
     #create the word
-    print("1 bye");
+    #print("1 bye");
     wordInsert = "insert into word (word) values (%s);"
     cur.execute(wordInsert, ([word]))
     db.commit()
@@ -71,6 +88,15 @@ def getWordLocation(wordLocation):
   else:
     return -1
 
+def getUniqueWordResult(wordId, resultPageId, wordLocationId):
+  sqlString = "select * from resultWord where wordId= %s and resultPageId= %s and wordLocationId= %s;"
+  res = cur.execute(sqlString, (wordId, resultPageId, wordLocationId))
+  data = cur.fetchall()
+  if data:
+    return data[0][0]
+  else:
+    return -1
+
 # words we don't care about
 discard = '[a, all, also, another, and, any, anybody, anyone, anything, are, be, both, by, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, you, your, yours, yourself, yourselves]'
 
@@ -90,133 +116,140 @@ if(len(sys.argv) > 1):
   currentSearchId = saveSearch(searchPhrase, 0)
   
   #print(searchString)
-  for url in search(searchString, stop=4):
+  for url in search(searchString, stop=20):
     
     html = requests.get(url).text
     extracted = extraction.Extractor().extract(html, source_url=url)
     
-    soup = BeautifulSoup.BeautifulSoup(html)
-    pageContent = "";
-    for node in soup.findAll('p'):
-      pageContent+=''.join(node.findAll(text=True))
+    if extracted is not None:
+      soup = BeautifulSoup.BeautifulSoup(html)
+      pageContent = "";
+      for node in soup.findAll('p'):
+        pageContent+=''.join(node.findAll(text=True))
     
-    #count all the words in the text to find friendly words
-    rawTitle = re.sub("[^\w]", " ", extracted.title.lower()).split()
-    rawDescription = re.sub("[^\w]", " ", extracted.description.lower()).split()
-    rawContent = re.sub("[^\w]", " ", pageContent.lower()).split()
-    
-    rawTitleMinusDiscard = [desWord for desWord in rawTitle if desWord not in discard]
-    rawDescriptionMinusDiscard = [desWord for desWord in rawDescription if desWord not in discard]
-    rawContentMinusDiscard = [contentWord for contentWord in rawContent if contentWord not in discard]
-    
-    # get the count of the the most common words
-    descriptionWords = Counter(rawDescriptionMinusDiscard).most_common()
-    contentWords = Counter(rawContentMinusDiscard).most_common()
-    
-    # only returns words with a signifigant occurance
-    #print(len(rawContentMinusDiscard))
-    significantContentWords = []; 
-    significantNumber = len(rawContentMinusDiscard)/200
-    
-    if significantNumber == 0:
-      significantNumber = 1
+      #count all the words in the text to find friendly words
+      rawTitle = []
+      if extracted.title is not None:
+        rawTitle = re.sub("[^\w]", " ", extracted.title.lower()).split()
       
-    #print(significantNumber)
-    for cWord in contentWords:
-      if(cWord[1] > significantNumber):
-        significantContentWords+=cWord
-      #print(cWord[1])
+      rawDescription = []
+      if extracted.description is not None:
+        rawDescription = re.sub("[^\w]", " ", extracted.description.lower()).split()
+      
+      rawContent = re.sub("[^\w]", " ", pageContent.lower()).split()
     
-    #save this page
-    currentResultPageId = saveResultPage(currentSearchId, url, extracted.title.lower(), extracted.description.lower(), extracted.image, pageContent, str(extracted.feeds))
+      rawTitleMinusDiscard = [desWord for desWord in rawTitle if desWord not in discard]
+      rawDescriptionMinusDiscard = [desWord for desWord in rawDescription if desWord not in discard]
+      rawContentMinusDiscard = [contentWord for contentWord in rawContent if contentWord not in discard]
     
-    #word breakdown
-    for word in searchPhrase:
-      if word in url.lower():
-        #check to see the word exists and get id
+      # get the count of the the most common words
+      descriptionWords = Counter(rawDescriptionMinusDiscard).most_common()
+      contentWords = Counter(rawContentMinusDiscard).most_common()
+    
+      # only returns words with a signifigant occurance
+      #print(len(rawContentMinusDiscard))
+      significantContentWords = []; 
+      significantNumber = len(rawContentMinusDiscard)/200
+    
+      if significantNumber == 0:
+        significantNumber = 1
+      
+      #print(significantNumber)
+      for cWord in contentWords:
+        if(cWord[1] > significantNumber):
+          significantContentWords+=cWord
+        #print(cWord[1])
+    
+      #save this page
+      currentResultPageId = saveResultPage(currentSearchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds))
+    
+      #word breakdown
+      for word in searchPhrase:
+        if word in url.lower():
+          #check to see the word exists and get id
+          currentWordId = saveWord(word)
+          #print(wordId)
+          saveResultWord(currentResultPageId, currentWordId, 6, getWordLocation("url"), True)
+    
+      for word in rawTitleMinusDiscard:
         currentWordId = saveWord(word)
-        #print(wordId)
-        saveResultWord(currentResultPageId, currentWordId, 6, getWordLocation("url"), True)
+        if word in searchPhrase:
+          saveResultWord(currentResultPageId, currentWordId, 4, getWordLocation("title"), True)
+        else:
+          saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("title"), False)
     
-    for word in rawTitleMinusDiscard:
-      currentWordId = saveWord(word)
-      if word in searchPhrase:
-        saveResultWord(currentResultPageId, currentWordId, 4, getWordLocation("title"), True)
-      else:
-        saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("title"), False)
-    
-    for word in rawDescriptionMinusDiscard:
-      currentWordId = saveWord(word)
-      if word in searchPhrase:
-        saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("description"), True)
-      else:
-        saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("description"), False)
+      for word in rawDescriptionMinusDiscard:
+        currentWordId = saveWord(word)
+        if word in searchPhrase:
+          saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("description"), True)
+        else:
+          saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("description"), False)
 
-    for word in rawContentMinusDiscard:
-      currentWordId = saveWord(word)
-      if word in searchPhrase:
-        saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("content"), True)
-      elif word in significantContentWords:
-        saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("content"), False)
-      else:
-        saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("content"), False)
+      for word in rawContentMinusDiscard:
+        currentWordId = saveWord(word)
+        if word in searchPhrase:
+          saveResultWord(currentResultPageId, currentWordId, 3, getWordLocation("content"), True)
+        elif word in significantContentWords:
+          saveResultWord(currentResultPageId, currentWordId, 2, getWordLocation("content"), False)
+        else:
+          saveResultWord(currentResultPageId, currentWordId, 1, getWordLocation("content"), False)
     
         
-      #save the result word
-      #saveResultWord(currentResultPageId, currentWordId, wordCount, titleWordCount, descriptionWordCount, contentWordCount)
+        #save the result word
+        #saveResultWord(currentResultPageId, currentWordId, wordCount, titleWordCount, descriptionWordCount, contentWordCount)
 
     
             
-    #count the occurances of the search word in the site and weighted total (url = n*5, title = v*3, description v*2, content = v*1)
-    #urlSearchWordCount=0
-    #for word in searchPhrase:
-    #  if word in url.lower():
-    #    #check to see the word exists and get id
-    #    wordId = saveWord(word)
-    #    #print(wordId)
-    #    urlSearchWordCount+=5
-    #    saveResultPage(currentSearchId,)
+      #count the occurances of the search word in the site and weighted total (url = n*5, title = v*3, description v*2, content = v*1)
+      #urlSearchWordCount=0
+      #for word in searchPhrase:
+      #  if word in url.lower():
+      #    #check to see the word exists and get id
+      #    wordId = saveWord(word)
+      #    #print(wordId)
+      #    urlSearchWordCount+=5
+      #    saveResultPage(currentSearchId,)
     
-    #titleSearchWordCount=0
-    #for word in searchPhrase:
-    #  if word in extracted.title.lower():
-    #    titleSearchWordCount+=3
+      #titleSearchWordCount=0
+      #for word in searchPhrase:
+      #  if word in extracted.title.lower():
+      #    titleSearchWordCount+=3
         
-    #descriptionSearchWordCount=0
-    #for word in searchPhrase:
-    #  if word in extracted.description.lower():
-    #    descriptionSearchWordCount+=2
+      #descriptionSearchWordCount=0
+      #for word in searchPhrase:
+      #  if word in extracted.description.lower():
+      #    descriptionSearchWordCount+=2
         
-    #ContentSearchWordCount=0
-    #for word in searchPhrase:
-    #  if word in pageContent.lower():
-    #    ContentSearchWordCount+=1
+      #ContentSearchWordCount=0
+      #for word in searchPhrase:
+      #  if word in pageContent.lower():
+      #    ContentSearchWordCount+=1
     
-    #print(urlSearchWordCount)
-    #print(titleSearchWordCount)
-    #print(descriptionSearchWordCount)
-    #print(ContentSearchWordCount)
+      #print(urlSearchWordCount)
+      #print(titleSearchWordCount)
+      #print(descriptionSearchWordCount)
+      #print(ContentSearchWordCount)
     
-    #titleSearchWordCount+=extracted.title.lower().count(searchPhrase.lower()) *3
-    #titleSearchWordCount+=extracted.description.lower().count(searchPhrase.lower()) *2
-    #titleSearchWordCount+=pageContent.lower().count(searchPhrase.lower())
-    
-    
-    
-    #print()
-    #print(descriptionWords)
-    #print(significantContentWords)
-    
-    #
-    # SQL
-    #
-    
-    #sqlString = "insert into searchResults (url, search, title, description, imageUrl, content, feeds, rating, searchWordCount, friendwordCount) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+      #titleSearchWordCount+=extracted.title.lower().count(searchPhrase.lower()) *3
+      #titleSearchWordCount+=extracted.description.lower().count(searchPhrase.lower()) *2
+      #titleSearchWordCount+=pageContent.lower().count(searchPhrase.lower())
     
     
-    #cur.execute(sqlString, (url, searchPhrase, extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
-    #db.commit()
-    #print(extracted)
+    
+      #print()
+      #print(descriptionWords)
+      #print(significantContentWords)
+    
+      #
+      # SQL
+      #
+    
+      #sqlString = "insert into searchResults (url, search, title, description, imageUrl, content, feeds, rating, searchWordCount, friendwordCount) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+    
+    
+      #cur.execute(sqlString, (url, searchPhrase, extracted.title, extracted.description, extracted.image, pageContent, str(extracted.feeds), 1.0, titleSearchWordCount, 1))
+      #db.commit()
+      #print(extracted)
     
     print("---------------------------------------------------")
 
