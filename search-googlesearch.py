@@ -215,6 +215,7 @@ if(len(sys.argv) > 1):
   
   searchId = doSearch(searchString, 0, 5)
   newSearchWords = getNextLevelSearches(searchId)
+  print(newSearchWords)
   for searchWord in newSearchWords:
     newSearchPhrase = searchString + searchWord
     print("starting search:::")
