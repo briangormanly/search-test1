@@ -193,13 +193,13 @@ def getNextLevelSearches(searchId):
   cur.execute(sqlString, ([searchId]))
   data = cur.fetchall()
   if data:
-    return data[0][0]
+    return data
   else:
     return -1
   
 
 # words we don't care about
-discard = '[a, all, also, another, and, any, anybody, anyone, anything, are, be, both, by, com, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, http, i, it, its, itself, little, many, me, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, www, you, your, yours, yourself, yourselves]'
+discard = '[39, a, all, also, another, and, any, anybody, anyone, anything, are, be, both, by, com, each, either, everybody, everyone, everything, few, for, get, has, he, her, hers, herself, him, himself, his, http, https, i, it, its, itself, little, many, me, middot, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, that,their, theirs, them, themselves, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, www, you, your, yours, yourself, yourselves]'
 
 if(len(sys.argv) > 1):
   
@@ -217,7 +217,7 @@ if(len(sys.argv) > 1):
   newSearchWords = getNextLevelSearches(searchId)
   print(newSearchWords)
   for searchWord in newSearchWords:
-    newSearchPhrase = searchString + searchWord
+    newSearchPhrase = searchString + " " + searchWord[0]
     print("starting search:::")
     print(newSearchPhrase)
     doSearch(newSearchPhrase, searchId, 5)
