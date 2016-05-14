@@ -11,7 +11,7 @@ import BeautifulSoup
 
 db = MySQLdb.connect(host="localhost",    # your host, usually localhost
     user="root",         # your username
-    passwd="",  # your password
+    passwd="test",  # your password
     db="google_test1")        # name of the data base
   
 # you must create a Cursor object. It will let
@@ -30,7 +30,7 @@ def saveResultWord(resultPageId, wordId, wordScore, wordLocationId, isSearchWord
   resultWordId = getUniqueWordResult(wordId, resultPageId, wordLocationId)
   if resultWordId is not -1:
     #get the current score for existing resultWord
-    sqlString = "select wordScore from resultword where resultPageId= %s and wordId= %s and wordLocationId = %s;"
+    sqlString = "select wordScore from resultWord where resultPageId= %s and wordId= %s and wordLocationId = %s;"
     cur.execute(sqlString, (resultPageId, wordId, wordLocationId))
     data = cur.fetchall()
     if data:
@@ -189,7 +189,7 @@ def doSearch(searchString, level, searchStop):
 def getNextLevelSearches(searchId):
   # get the most common words for the previous search
   #
-  sqlString = "select word.word, sum(resultword.wordScore) as score from word, resultWord, resultPage, search, wordlocation where word.id = resultword.wordId and resultWord.resultPageId = resultPage.id and resultWord.wordLocationId = wordLocation.id and resultPage.searchId = search.id and search.id = %s and resultWord.wordScore > 10 group by word.word order by score desc limit 10;"
+  sqlString = "select word.word, sum(resultWord.wordScore) as score from word, resultWord, resultPage, search, wordLocation where word.id = resultWord.wordId and resultWord.resultPageId = resultPage.id and resultWord.wordLocationId = wordLocation.id and resultPage.searchId = search.id and search.id = %s and resultWord.wordScore > 10 group by word.word order by score desc limit 10;"
   cur.execute(sqlString, ([searchId]))
   data = cur.fetchall()
   if data:
