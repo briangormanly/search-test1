@@ -21,6 +21,13 @@ class SearchObj(object):
   parentSearchId = 0 
   searchStop = 5
   
+  #opinion words
+  posWords = []
+  negWords = []
+  
+  #opinion tracking for page
+  opinion = 0.0
+  
   db = 0;
   #cur = 0;
   
@@ -36,6 +43,11 @@ class SearchObj(object):
     self.dbPassword = ""
     self.dbName = "google_test1"
     
+    self.posWords = self.getAllPosWords()
+    self.negWords = self.getAllNegWords()
+    
+    self.opinion = 0.0;
+    
     #self.db = MySQLdb.connect(host="localhost",    # your host, usually localhost
     #    user="root",         # your username
     #    passwd="",  # your password
@@ -46,12 +58,12 @@ class SearchObj(object):
     #self.cur = self.db.cursor()
   
   
-  def saveResultPage(self, searchId, url, title, description, imageUrl, content, feeds):
-    sqlString = "insert into resultPage (searchId, url, title, description, imageUrl, content, feeds) values (%s, %s, %s, %s, %s, %s, %s);"
+  def saveResultPage(self, searchId, url, title, description, imageUrl, content, feeds, pageOpinionScore):
+    sqlString = "insert into resultPage (searchId, url, title, description, imageUrl, content, feeds, pageOpinionScore) values (%s, %s, %s, %s, %s, %s, %s, %s);"
     
     with closing(self.db.cursor()) as cur:
     
-      cur.execute(sqlString, (searchId, url, title, description, imageUrl, content, str(feeds)))
+      cur.execute(sqlString, (searchId, url, title, description, imageUrl, content, str(feeds), str(pageOpinionScore)))
       #cur.execute(wordInsert, ([word]))
       self.db.commit()
       return cur.lastrowid;
@@ -59,6 +71,7 @@ class SearchObj(object):
   def saveResultWord(self, resultPageId, wordId, wordScore, wordLocationId, isSearchWord):
     #check to see if this result word exists for this searchResult and word
     resultWordId = self.getUniqueWordResult(wordId, resultPageId, wordLocationId)
+    
     if resultWordId is not -1:
       #get the current score for existing resultWord
       sqlString = "select wordScore from resultWord where resultPageId= %s and wordId= %s and wordLocationId = %s;"
@@ -84,8 +97,18 @@ class SearchObj(object):
         self.db.commit()
         return cur.lastrowid;
   
+  def updatePageOpinionScore(self, resultPageId):
+    if resultPageId > 0:
+      with closing(self.db.cursor()) as cur:
+        sqlString = "update resultPage set pageOpinionScore= %s where id= %s;"
+        cur.execute(sqlString, (self.opinion, resultPageId))
+        #pcur.execute(wordInsert, ([word]))
+        self.db.commit()
+        return cur.lastrowid;
+  
   def saveWord(self, word):
     existingWord = self.getWord(word)
+    
     #print existingWord
     if existingWord is -1:
       #create the word
@@ -140,6 +163,53 @@ class SearchObj(object):
         return data[0][0]
       else:
         return -1
+        
+  def getAllPosWords(self):
+    sqlString = "select opinionWord from opinionWord where isPositive=true;"
+    
+    # open db connection 
+    self.db = MySQLdb.connect(self.dbHost, self.dbUser, self.dbPassword, self.dbName)
+    
+    with closing(self.db.cursor()) as cur:
+      res = cur.execute(sqlString, ())
+      data = cur.fetchall()
+      posWords = []
+      for row in data:
+          posWords.append(row[0])
+      
+      return posWords
+    
+    #close db connection
+    self.db.close()
+        
+  def getAllNegWords(self):
+    sqlString = "select opinionWord from opinionWord where isPositive=false;"
+    
+    # open db connection 
+    self.db = MySQLdb.connect(self.dbHost, self.dbUser, self.dbPassword, self.dbName)
+    
+    with closing(self.db.cursor()) as cur:
+      res = cur.execute(sqlString, ())
+      data = cur.fetchall()
+      negWords = []
+      for row in data:
+          negWords.append(row[0])
+      
+      return negWords
+    
+    #close db connection
+    self.db.close()
+    
+  def checkOpinionOnWord(self, word, wordLocationFactor):
+     
+    #see if word is positive / negative
+    if(word in self.posWords):
+      self.opinion += (.01 * wordLocationFactor)
+      
+    elif(word in self.negWords):
+      self.opinion -= (.01 * wordLocationFactor)
+    
+      
   
   def asyncSearch(self):
     threading.Thread(target=self.doSearch).start()
@@ -155,17 +225,15 @@ class SearchObj(object):
     #print(searchString)
     print("search string is: ")
     print(self.searchString)
-    #urls = search(self.searchString, stop=self.searchStop)
-    print("urls:::::::::::::::: ")
-    #print(list(urls))
-    #print("url try 1")
-    #print(url[0])
-    #for url in urls:
+    
     for url in search(self.searchString, stop=self.searchStop):
       print("url is ")
       print(url)
       html = requests.get(url).text
       extracted = extraction.Extractor().extract(html, source_url=url)
+      
+      #reset opinion for new page
+      self.opinion = 0.0
     
       if extracted is not None:
         page_text = html.encode('utf-8').decode('ascii', 'ignore')
@@ -208,7 +276,7 @@ class SearchObj(object):
           #print(cWord[1])
     
         #save this page
-        currentResultPageId = self.saveResultPage(currentSearchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds))
+        currentResultPageId = self.saveResultPage(currentSearchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds), self.opinion)
     
         #word breakdown
         for word in self.searchString:
@@ -217,33 +285,59 @@ class SearchObj(object):
             currentWordId = saveWord(word, db, cur)
             #print(wordId)
             self.saveResultWord(currentResultPageId, currentWordId, 6, self.getWordLocation("url"), True)
+            
+            #update opinion
+            checkOpinionOnWord(word, 6)
     
         for word in rawTitleMinusDiscard:
           if len(word) > 1:
             currentWordId = self.saveWord(word)
             if word in self.searchString:
               self.saveResultWord(currentResultPageId, currentWordId, 4, self.getWordLocation("title"), True)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 4)
             else:
               self.saveResultWord(currentResultPageId, currentWordId, 2, self.getWordLocation("title"), False)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 2)
     
         for word in rawDescriptionMinusDiscard:
           if len(word) > 1:
             currentWordId = self.saveWord(word)
             if word in self.searchString:
               self.saveResultWord(currentResultPageId, currentWordId, 3, self.getWordLocation("description"), True)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 3)
             else:
               self.saveResultWord(currentResultPageId, currentWordId, 1, self.getWordLocation("description"), False)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 1)
 
         for word in rawContentMinusDiscard:
           if len(word) > 1:
             currentWordId = self.saveWord(word)
             if word in self.searchString:
               self.saveResultWord(currentResultPageId, currentWordId, 3, self.getWordLocation("content"), True)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 3)
             elif word in significantContentWords:
               self.saveResultWord(currentResultPageId, currentWordId, 2, self.getWordLocation("content"), False)
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 2)
             else:
               self.saveResultWord(currentResultPageId, currentWordId, 1, self.getWordLocation("content"), False)
-    
+              
+              #update opinion
+              self.checkOpinionOnWord(word, 1)
+          
+        #update the opinion scrore
+        self.updatePageOpinionScore(currentResultPageId)
     
     #close db connection
     self.db.close()
