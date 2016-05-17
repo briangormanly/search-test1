@@ -17,9 +17,12 @@ class SearchObj(object):
   dbPassword = ""
   dbName = "google_test1"
   
+  searchId = 0
   searchString = ""
   parentSearchId = 0 
   searchStop = 5
+  
+  searchOpinion = 0.0
   
   #opinion words
   posWords = []
@@ -209,6 +212,31 @@ class SearchObj(object):
     elif(word in self.negWords):
       self.opinion -= (.01 * wordLocationFactor)
     
+  #Reports
+  def searchOpinionResults(self):
+    
+    # open db connection 
+    #self.db = MySQLdb.connect(self.dbHost, self.dbUser, self.dbPassword, self.dbName)
+    
+    with closing(self.db.cursor()) as cur:
+      
+      sqlString = "select resultPage.id, search.id as SearchId, resultPage.url, resultPage.pageOpinionScore from resultPage, search where search.id = resultPage.searchId and (search.id = %s or search.parentSearchId = %s);"
+      print("select resultPage.id, search.id as SearchId, resultPage.url, resultPage.pageOpinionScore from resultPage, search where search.id = resultPage.searchId and (search.id =  or search.parentSearchId = )")
+      res = cur.execute(sqlString, (self.searchId, self.searchId))
+      data = cur.fetchall()
+      print("results: ")
+      print(self.searchId)
+      print(data)
+      
+      for row in data:
+        #total up the sentiment for the whole search
+        self.searchOpinion += row["pageOpinionScore"]
+        
+        print("url: " + row["url"] + " opinion: " + str(row["pageOpinionScore"]))
+    
+    print("Search total Opinion: " + str(self.searchOpinion))
+    #close db connection
+    #self.db.close()
       
   
   def asyncSearch(self):
@@ -220,7 +248,7 @@ class SearchObj(object):
     self.db = MySQLdb.connect(self.dbHost, self.dbUser, self.dbPassword, self.dbName)
     
     # Save the search string
-    currentSearchId = self.saveSearch()
+    self.searchId = self.saveSearch()
       
     #print(searchString)
     print("search string is: ")
@@ -254,8 +282,11 @@ class SearchObj(object):
         rawContent = re.sub("[^\w]", " ", pageContent.lower()).split()
     
         rawTitleMinusDiscard = [desWord for desWord in rawTitle if desWord not in self.discard]
+        rawTitleMinusDiscard += [desWord for desWord in rawTitle if desWord < 9999999999]
         rawDescriptionMinusDiscard = [desWord for desWord in rawDescription if desWord not in self.discard]
+        rawDescriptionMinusDiscard += [desWord for desWord in rawDescription if desWord < 9999999999]
         rawContentMinusDiscard = [contentWord for contentWord in rawContent if contentWord not in self.discard]
+        rawContentMinusDiscard += [contentWord for contentWord in rawContent if contentWord < 9999999999]
     
         # get the count of the the most common words
         descriptionWords = Counter(rawDescriptionMinusDiscard).most_common()
@@ -276,7 +307,7 @@ class SearchObj(object):
           #print(cWord[1])
     
         #save this page
-        currentResultPageId = self.saveResultPage(currentSearchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds), self.opinion)
+        currentResultPageId = self.saveResultPage(self.searchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds), self.opinion)
     
         #word breakdown
         for word in self.searchString:
@@ -338,11 +369,15 @@ class SearchObj(object):
           
         #update the opinion scrore
         self.updatePageOpinionScore(currentResultPageId)
+        
+    # get the opinion results for this search
+    self.searchOpinionResults()
+        
     
     #close db connection
     self.db.close()
     
-    return currentSearchId
+    return self.searchId
 
   def getNextLevelSearches(self, searchId):
     # get the most common words for the previous search
