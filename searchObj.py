@@ -230,9 +230,10 @@ class SearchObj(object):
       
       for row in data:
         #total up the sentiment for the whole search
-        self.searchOpinion += row["pageOpinionScore"]
+        print(row[3])
+        self.searchOpinion += float(row[3])
         
-        print("url: " + row["url"] + " opinion: " + str(row["pageOpinionScore"]))
+        print("url: " + row[2] + " opinion: " + str(row[3]))
     
     print("Search total Opinion: " + str(self.searchOpinion))
     #close db connection
