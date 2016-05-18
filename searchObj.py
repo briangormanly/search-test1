@@ -30,6 +30,7 @@ class SearchObj(object):
   
   #opinion tracking for page
   opinion = 0.0
+  pageOpinion = 0.0
   
   db = 0;
   #cur = 0;
@@ -50,6 +51,7 @@ class SearchObj(object):
     self.negWords = self.getAllNegWords()
     
     self.opinion = 0.0;
+    self.pageOpinion = 0.0;
     
     #self.db = MySQLdb.connect(host="localhost",    # your host, usually localhost
     #    user="root",         # your username
@@ -104,10 +106,24 @@ class SearchObj(object):
     if resultPageId > 0:
       with closing(self.db.cursor()) as cur:
         sqlString = "update resultPage set pageOpinionScore= %s where id= %s;"
-        cur.execute(sqlString, (self.opinion, resultPageId))
+        cur.execute(sqlString, (self.pageOpinion, resultPageId))
         #pcur.execute(wordInsert, ([word]))
         self.db.commit()
         return cur.lastrowid;
+
+  def updateSearchOpinionScore(self, searchId):
+    if searchId > 0:
+
+      self.db = MySQLdb.connect(self.dbHost, self.dbUser, self.dbPassword, self.dbName)
+
+      with closing(self.db.cursor()) as cur:
+        sqlString = "update search set searchOpinionScore= %s where id= %s;"
+        cur.execute(sqlString, (self.opinion, searchId))
+        #pcur.execute(wordInsert, ([word]))
+        self.db.commit()
+        return cur.lastrowid;
+
+      self.db.close()
   
   def saveWord(self, word):
     existingWord = self.getWord(word)
@@ -207,10 +223,10 @@ class SearchObj(object):
      
     #see if word is positive / negative
     if(word in self.posWords):
-      self.opinion += (.01 * wordLocationFactor)
+      self.pageOpinion += (.01 * wordLocationFactor)
       
     elif(word in self.negWords):
-      self.opinion -= (.01 * wordLocationFactor)
+      self.pageOpinion -= (.01 * wordLocationFactor)
     
   #Reports
   def searchOpinionResults(self):
@@ -235,7 +251,7 @@ class SearchObj(object):
         
         print("url: " + row[2] + " opinion: " + str(row[3]))
     
-    print("Search total Opinion: " + str(self.searchOpinion))
+    print("Search " + self.searchString + " total Opinion: " + str(self.searchOpinion))
     #close db connection
     #self.db.close()
       
@@ -262,7 +278,7 @@ class SearchObj(object):
       extracted = extraction.Extractor().extract(html, source_url=url)
       
       #reset opinion for new page
-      self.opinion = 0.0
+      self.pageOpinion = 0.0
     
       if extracted is not None:
         page_text = html.encode('utf-8').decode('ascii', 'ignore')
@@ -308,7 +324,7 @@ class SearchObj(object):
           #print(cWord[1])
     
         #save this page
-        currentResultPageId = self.saveResultPage(self.searchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds), self.opinion)
+        currentResultPageId = self.saveResultPage(self.searchId, url, ','.join(rawTitle), ','.join(rawDescription), extracted.image, pageContent, str(extracted.feeds), self.pageOpinion)
     
         #word breakdown
         for word in self.searchString:
@@ -374,6 +390,7 @@ class SearchObj(object):
     # get the opinion results for this search
     self.searchOpinionResults()
         
+    #this is where i should save the search opinion!!!!! (and add up the total opinion from all the page ones)
     
     #close db connection
     self.db.close()
