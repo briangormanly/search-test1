@@ -15,3 +15,7 @@ select word.word, sum(resultword.wordScore) as score from word, resultWord, resu
 
 
 select word.word, sum(resultword.wordScore) as score from word, resultWord, resultPage, search, wordlocation where word.id = resultword.wordId and resultWord.resultPageId = resultPage.id and resultWord.wordLocationId = wordLocation.id and resultPage.searchId = search.id and (search.id = 52 || search.parentSearchId = 52) and resultWord.wordScore > 5 group by word.word order by score desc limit 100;
+
+# select opinion results by page for serach
+select resultPage.id, search.id as SearchId, resultPage.url, resultPage.pageOpinionScore from resultPage, search where search.id = resultPage.searchId and (search.id = 2 or search.parentSearchId = 2);
+

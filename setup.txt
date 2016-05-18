@@ -1,0 +1,97 @@
+#!/bin/bash
+###
+# CentOS 7.2
+# server setup
+
+#all commands as root
+
+#mysql 
+sudo rpm -Uvh http://dev.mysql.com/get/mysql-community-release-el7-5.noarch.rpm
+yum install mysql mysql-server mysql-libs mysql-server --assumeyes
+service mysqld start
+
+#git
+yum install git --assumeyes
+
+# create directory and pull software
+mkdir /data
+cd /data/
+git clone https://github.com/briangormanly/search-test1.git
+cd search-test1
+
+#initalize database
+mysql -u root < create.sql
+
+# install pip
+cd ~
+curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+python get-pip.py
+
+# install pre-reqs for MySQL-python
+yum install gcc --assumeyes
+yum install mysql-devel --assumeyes
+yum install python-devel --assumeyes
+yum install libevent-devel --assumeyes
+
+# install needed libraries
+pip install google
+pip install extraction
+pip install BeautifulSoup
+pip install MySQL-python
+
+#run!
+cd /data/search-test1
+#python search-googlesearch.py dow jones
+
+
+###
+# Configuration
+#
+
+#mysql.cnf 
+
+# For advice on how to change settings please see
+# http://dev.mysql.com/doc/refman/5.6/en/server-configuration-defaults.html
+
+[mysqld]
+default-storage-engine = innodb
+
+# set according to the amount of memory available to mysql on the server
+# this is for a 8GB server running python as well.
+innodb_buffer_pool_size = 4G
+
+innodb_buffer_pool_instances=32
+innodb_log_file_size=500M
+innodb_flush_log_at_trx_commit=2
+#
+# Remove leading # and set to the amount of RAM for the most important data
+# cache in MySQL. Start at 70% of total RAM for dedicated server, else 10%.
+
+#
+# Remove leading # to turn on a very important data integrity option: logging
+# changes to the binary log between backups.
+# log_bin
+#
+# Remove leading # to set options mainly useful for reporting servers.
+# The server defaults are faster for transactions and fast SELECTs.
+# Adjust sizes as needed, experiment to find the optimal values.
+join_buffer_size = 256M
+sort_buffer_size = 2M
+read_rnd_buffer_size = 2M
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+
+# Disabling symbolic-links is recommended to prevent assorted security risks
+symbolic-links=0
+
+# Recommended in standard MySQL setup
+sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES
+
+[mysqld_safe]
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+
+query_cache_size=128M
+key_buffer_size=2G
+
+slow_query_log=1

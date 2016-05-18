@@ -14,6 +14,8 @@ insert into wordLocation (location) values ("content");
 create table resultWord(id bigint primary key auto_increment, resultPageId bigint, wordId bigint, wordScore int, wordLocationId bigint, isSearchWord boolean);	
 create table opinionWord(id bigint primary key auto_increment, opinionWord varchar(250), isPositive boolean);
 
+create table englishWords (id bigint primary key auto_increment, word varchar(250));
+
 #create table searchResults (id bigint primary key auto_increment, search varchar(200), url varchar(300), title varchar(300), description TEXT, imageUrl varchar(300), content LONGTEXT, feeds TEXT, searchWordCount int, friendword varchar(100), friendwordCount int, scrapeTimestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updateTimestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, rating double);
 
 #############################################################################
