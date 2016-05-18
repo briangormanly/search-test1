@@ -118,7 +118,7 @@ class SearchObj(object):
 
       with closing(self.db.cursor()) as cur:
         sqlString = "update search set searchOpinionScore= %s where id= %s;"
-        cur.execute(sqlString, (self.opinion, searchId))
+        cur.execute(sqlString, (self.searchOpinion, searchId))
         #pcur.execute(wordInsert, ([word]))
         self.db.commit()
         return cur.lastrowid;
@@ -247,11 +247,12 @@ class SearchObj(object):
       for row in data:
         #total up the sentiment for the whole search
         print(row[3])
-        self.searchOpinion += float(row[3])
+        #self.searchOpinion += float(row[3])
         
         print("url: " + row[2] + " opinion: " + str(row[3]))
     
     print("Search " + self.searchString + " total Opinion: " + str(self.searchOpinion))
+    
     #close db connection
     #self.db.close()
       
@@ -387,10 +388,14 @@ class SearchObj(object):
         #update the opinion scrore
         self.updatePageOpinionScore(currentResultPageId)
         
+        #update the running searchOpinion score for the whole search
+        self.searchOpinion += self.pageOpinion
+        
     # get the opinion results for this search
     self.searchOpinionResults()
         
     #this is where i should save the search opinion!!!!! (and add up the total opinion from all the page ones)
+    self.updateSearchOpinionScore(self.searchId)
     
     #close db connection
     self.db.close()
