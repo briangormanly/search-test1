@@ -1,5 +1,6 @@
 #!/bin/bash
 ###
+#test
 # CentOS 7.2
 # server setup
 
