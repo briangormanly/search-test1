@@ -12,31 +12,31 @@ import thread
 import threading
 
 class SearchObj(object):
+
+  # dababase connection info
   dbHost = "localhost"
   dbUser = "root"
   dbPassword = ""
   dbName = "google_test1"
-  
+
+  # db object
+  db = 0;
+
+  # search info
   searchId = 0
   searchString = ""
   parentSearchId = 0 
   searchStop = 5
-  
+
+  #opinion tracking for page
   searchOpinion = 0.0
-  
-  #opinion words
+  pageOpinion = 0.0
+
+  #Words
+  words = []
   posWords = []
   negWords = []
-  
-  #opinion tracking for page
-  opinion = 0.0
-  pageOpinion = 0.0
-  
-  db = 0;
-  #cur = 0;
-  
-  # words we don't care about
-  discard = '[39, a, all, also, amp, another, and, any, anybody, anyone, anything, are, be, both, but, by, com, each, either, everybody, everyone, everything, few, for, from, get, has, have, he, her, hers, herself, him, himself, his, http, https, i, if, it, its, itself, little, many, me, middot, mine, more, most, much, my, myself, nbsp, neither, nobody, none, nothing, of, one, other, others, our, ours, ourselves, several, she, some, somebody, someone, something, than, that, their, theirs, them, themselves, then, these, the, they, this, those, to, us, was, we, what, whatever, which, whichever, while, will, who, whoever, whom, whomever, whose, with, www, you, your, yours, yourself, yourselves]'
+  discard = '[]'
   
   def __init__(self, searchString, parentSearchId, searchStop):
     self.searchString = searchString
@@ -125,7 +125,7 @@ class SearchObj(object):
 
       self.db.close()
   
-  def saveWord(self, word):
+  def saveWord(self, word, isPositive, isNegative):
     existingWord = self.getWord(word)
     
     #print existingWord
@@ -149,6 +149,8 @@ class SearchObj(object):
       cur.execute(sqlString, (str(self.searchString), self.parentSearchId))
       self.db.commit()
       return cur.lastrowid;
+
+  def getAllWords
 
   def getWord(self, word):
     sqlString = "select * from word where word= %s;"
